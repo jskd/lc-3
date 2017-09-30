@@ -1,0 +1,17 @@
+.ORIG x0000
+	AND R0,R0,0
+	STI R0,cons1
+	NOP
+	NOP
+	NOP
+	NOP
+	NOP
+	NOP
+
+cons1: .FILL cons2
+	.FILL 1
+	.FILL 2
+
+cons2:	.FILL 3
+
+.END

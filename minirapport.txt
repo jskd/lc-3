@@ -1,0 +1,156 @@
+AddUnit
+-------
+
+Fait toutes les additions d'offset/PC/BaseR en fonction de ce qu'a besoin
+l'instruction en cour.
+
+Exemple:
+JSR: PC + Offset11
+STR: BaseR + Offset6
+
+
+Il est composé d'un additionneur prenant deux arguments.
+
+Les équations en logique combinatoire ont été faite à partir de ce tableau.
+
+(table 1)
+
+L'ALU n'utilise pas l'addUnit donc nous avons choisi les argument qui
+nous arrange le plus pour les équations logique:
+
+(Attention /15 = 15 avec une barre horizontal au dessus)
+
+Arg1:
+  Offset11 = JSR
+  Offset9= /14 + 13.15
+  Offset6= 13.14./15
+  0= /13.14./JSR
+
+Arg2:
+  PC= /14+/12.13.15+JSR
+  BaseR=/13.15+14./15./JSR
+  0=12.14.15
+
+DecodeIR
+--------
+
+Choisi les actions à effectuer en fonction de l'instruction en cour.
+
+Action et equations logique:
+
+  LoadMem: Selectionne MemOUT dans le writeSelector
+  (table loadMem)
+  LoadMem=12.13+13./15+13./14
+
+  LoadAddUnit: Selectionne le resultat calculé par le addUnit dans le writeSelector
+  (table AddUnit)
+  LoadAddUnit=/12.14.15
+
+
+  WriteR7: Indique l'on ecrit dans le Registre n°7 (prioritaire sur BaseR) et selectionne PC dans le writeSelector
+  (table WriteR7)
+  WriteR7=12.13.14.15+/12./13.14./15
+
+  Arith: Selectionne le resultat de l'ALU dans le writeSelector
+  Arith=12./13 (AND, ADD, NOT, RETB SETB)
+
+  WriteReg: Indique que l'on ecrit dans le registe
+  (table Write REG)
+  WriteReg=12./13+/12.13+12.14.15+/13.14./15
+
+  Jump: Indique au RegPC que l'on jump
+  (table JUMP)
+  Jump=/12./13+12.13.14.15
+
+  UseCondition: Indique au RegPC que l'on utilise les condition nzp
+  UseCondition=/12./13./14./15 (juste BR)
+
+  Load: Indique au RAMCtrl (uniquement) que l'on va lire une valeur
+  (table Load)
+  Load=/12.13./15+12/13/14/15+13./14.15
+
+  Store: Indique au RAMCtrl (uniquement) que l'on va stoquer une valeur
+  (table Store)
+  Store=12.13./15+12.13./14.15
+
+  DoubleIndirection: Indique au RAMCtrl ET au GetAddr que l'on va faire une double indirection
+  (table indirection)
+  DoubleIndirection=13./14.15
+
+writeSelector
+-------------
+
+Permet de choisir ce que l'on ecrit dans le registre.
+
+Valeur possible:
+- Resultat de l'alu
+- PC
+- Memout
+- Resultat de l'addUnit
+
+RegPC
+-----
+
+Gestion du PC
+
+A chaque front descendant de exec:
+Si jump . UseCondition . TestNZP +  jump . /UseCondition
+  PC <- Resultat add Unit
+Sinon
+  PC <- PC+1
+
+GetAddr
+-------
+
+Choisi l'adresse de la RAM à lire ou ecrire
+
+Valeur de sorti:
+
+              Si DoubleIndirection        Sinon
+Exec          regAddrIndirection          resultat addUnit
+Post Exec     PC                          PC
+Fetch         PC                          PC
+Post Fetch    resultat addUnit            resultat addUnit
+
+Pour effectuer la double indirection, un registre est utilisé contenant l'addr.
+
+Au front descendant de  post-Fetch . DoubleIndirection:
+  regAddrIndirection <- MemOUT
+
+RamCtrl
+-------
+
+Active / Desactive l'ecriture ou la lecture de la RAM
+
+              Lecture                    Ecriture
+
+Exec          Si load                    Si Store
+Post Exec     0                          0
+Fetch         1                          0
+Post Fetch    Si DoubleIndirection       0
+
+
+NZP
+---
+
+Calcule du NZP:
+
+N: RES[15] . /Z
+Z: Or(RES[15..0])
+P: /RES[15] . /Z
+
+Test de saut:
+
+testN= IR[11] . N
+testZ= IR[10] . Z
+testP= IR[9] . P
+testNZP= testN + testZ + testP
+
+
+Set/Reset bit
+-------------
+
+Si set:
+  Out = DataIn +  (1 << bit n)
+Sinon (si reset)
+  Out = DataIn . /(1 << bit n)
